@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://7e45o5umsa8l"]
 
 [ext_resource type="PackedScene" uid="uid://cb3bvpeellexv" path="res://scenes/Train.tscn" id="1_o5qli"]
+[ext_resource type="Script" uid="uid://ca4p5a5pfsukd" path="res://scripts/game_manager.gd" id="2_0wfyh"]
 
 [node name="Main" type="Control" unique_id=1390809355]
 layout_mode = 3
@@ -18,3 +19,36 @@ offset_right = 1145.0
 offset_bottom = 636.0
 
 [node name="Train" parent="." unique_id=1955489833 instance=ExtResource("1_o5qli")]
+position = Vector2(-1, -1)
+speed = 0.0
+
+[node name="GameUI" type="VBoxContainer" parent="." unique_id=2094964289]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Title" type="Label" parent="GameUI" unique_id=1123639340]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 40
+text = "LocoMOTive"
+
+[node name="Letters" type="Label" parent="GameUI" unique_id=401897634]
+layout_mode = 2
+text = "Lettres : A E I N R T"
+
+[node name="WordInput" type="LineEdit" parent="GameUI" unique_id=1946950132]
+layout_mode = 2
+placeholder_text = "Entrez un mot..."
+
+[node name="Score" type="Label" parent="GameUI" unique_id=133834967]
+layout_mode = 2
+text = "Score = 0"
+
+[node name="Speed" type="Label" parent="GameUI" unique_id=194675107]
+layout_mode = 2
+
+[node name="GameManager" type="Node" parent="." unique_id=341112649]
+script = ExtResource("2_0wfyh")
+
+[connection signal="text_submitted" from="GameUI/WordInput" to="GameManager" method="_on_word_input_text_submitted"]
