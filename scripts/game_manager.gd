@@ -23,7 +23,14 @@ var valid_words = [
 @onready var word_manager = get_parent().get_node("WordManager")
 @onready var dictionary_stats = get_parent().get_node("DictionaryStats")
 @onready var batch_generator = get_parent().get_node("BatchGenerator")
-	
+
+enum Difficulty {
+	EASY,
+	MEDIUM,
+	HARD
+}
+
+
 func initialize_dictionary():
 	word_manager.load_dictionary()
 	
@@ -41,7 +48,9 @@ func initialize_dictionary():
 	dictionary_stats.dictionary_hash = dictionary_hash
 	
 	dictionary_stats.compute_stat(word_manager.words)
-	
+	dictionary_stats.test_cooccurrences()
+	dictionary_stats.test_cooccurrence_consistency()
+	dictionary_stats.print_word_letter_presence()
 	dictionary_stats.print_stat()
 	
 	dictionary_stats.save_to_json()
@@ -55,10 +64,25 @@ func _ready():
 		dictionary_stats,
 		word_manager
 )
-	update_letters_ui()
+	generate_new_batch()
 	update_ui()
 	
-	batch_generator.test_ranked_batches(1000, 20)
+	#batch_generator.test_ranked_batches(1000, 20)
+
+func generate_new_batch() -> void:
+	var result = batch_generator.generate_batch_for_difficulty(
+		Difficulty.MEDIUM
+	)
+
+	if result.is_empty():
+		push_error("Impossible de générer un batch.")
+		return
+
+	var batch: Array[String] = result["batch"]
+
+	letter_manager.set_letters(batch)
+
+	update_letters_ui()
 
 func update_letters_ui():
 	letters_label.text = "Lettres : " + "  " .join(letter_manager.available_letters)

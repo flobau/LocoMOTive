@@ -1,12 +1,20 @@
 extends Node
 
 
-@export var batch_size: int = 6
+@export var batch_size: int = 7
 
 var rng := RandomNumberGenerator.new()
 
 var dictionary_stats
 var word_manager
+
+enum Difficulty {
+	EASY,
+	MEDIUM,
+	HARD
+}
+
+@export var difficulty: Difficulty = Difficulty.MEDIUM
 
 func initialize(
 	stats,
@@ -15,50 +23,51 @@ func initialize(
 
 	dictionary_stats = stats
 	word_manager = manager
-
+	
 func weighted_random_letter(
 	freq: Dictionary,
-	excluded: Array[String]
+	excluded: Array[String],
+	mask: Dictionary = {}
 ) -> String:
-	
+
 	var available := []
-	
 	var total_probability := 0.0
-	
+
 	for letter in freq:
 		if letter in excluded:
 			continue
-		
+
 		var probability: float = freq[letter]
-		
+
+		if mask.has(letter):
+			probability *= mask[letter]
+
 		if probability <= 0:
 			continue
-		
+
 		available.append({
 			"letter": letter,
 			"probability": probability
 		})
-		
+
 		total_probability += probability
-	
+
 	if available.is_empty():
 		return ""
-	
+
 	var value := rng.randf() * total_probability
-	
 	var accumulated := 0.0
-	
+
 	for candidate in available:
 		accumulated += candidate["probability"]
-		
+
 		if value <= accumulated:
 			return candidate["letter"]
-	
+
 	return available.back()["letter"]
 
-
 func generate_batch() -> Array[String]:
-	
+
 	if dictionary_stats == null:
 		push_error("BatchGenerator : DictionaryStats non initialisé.")
 		return []
@@ -66,47 +75,320 @@ func generate_batch() -> Array[String]:
 	if word_manager == null:
 		push_error("BatchGenerator : WordManager non initialisé.")
 		return []
-		
+
 	var batch: Array[String] = []
-	
-	var freq = dictionary_stats.global_frequencies
-	
+
 	while batch.size() < batch_size:
+
+		var frequencies := get_letter_frequencies_for_batch(batch)
+
 		var letter := weighted_random_letter(
-			freq,
+			frequencies,
 			batch
 		)
-		
+
 		if letter == "":
 			break
-		
+
 		batch.append(letter)
-	
+
 	return batch
 
-func get_batch_key(batch: Array[String]) -> String:
+func get_letter_frequencies_for_batch(
+	batch: Array[String]
+) -> Dictionary:
 
-	var sorted_batch := batch.duplicate()
-	sorted_batch.sort()
+	var frequencies: Dictionary = {}
 
-	return "".join(sorted_batch)
+	for letter in dictionary_stats.ALPHABET:
+
+		var global_freq: float = \
+			dictionary_stats.global_frequencies.get(letter, 0.0)
+
+		var score := global_freq
+
+		# --------------------------------
+		# Difficulté
+		# --------------------------------
+
+		match difficulty:
+
+			Difficulty.EASY:
+				# Favorise les lettres fréquentes
+				score = global_freq
+
+			Difficulty.MEDIUM:
+				# Mélange fréquence globale
+				# et légère préférence pour les
+				# lettres utiles aux mots longs
+				score = global_freq * 0.7
+
+			Difficulty.HARD:
+				# Réduit l'avantage des lettres
+				# extrêmement fréquentes
+				score = sqrt(global_freq)
+
+		# --------------------------------
+		# Bonus basé sur les longueurs
+		# --------------------------------
+
+		if not batch.is_empty():
+
+			var length_freq = dictionary_stats.length_freq
+
+			var length_score := 0.0
+			var length_count := 0
+
+			for length in [3, 4, 5, 6]:
+
+				if length_freq.has(length):
+
+					length_score += \
+						length_freq[length].get(letter, 0.0)
+
+					length_count += 1
+
+			if length_count > 0:
+				length_score /= length_count
+
+				score *= (0.7 + length_score)
+
+		frequencies[letter] = score
+
+	return frequencies
+
+func generate_batch_for_difficulty(
+	difficulty: Difficulty,
+	number_of_candidates: int = 30
+) -> Dictionary:
+
+	var candidates: Array = []
+
+	for i in range(number_of_candidates):
+
+		var batch := generate_batch()
+
+		if batch.size() != batch_size:
+			continue
+
+		var result := evaluate_batch(batch)
+
+		candidates.append(result)
+
+	if candidates.is_empty():
+		return {}
+
+	# --------------------------------------
+	# Score cible selon difficulté
+	# --------------------------------------
+
+	var target_score := 0.0
+
+	match difficulty:
+
+		Difficulty.EASY:
+			target_score = 65.0
+
+		Difficulty.MEDIUM:
+			target_score = 35.0
+
+		Difficulty.HARD:
+			target_score = 18.0
+
+	# --------------------------------------
+	# Cherche le candidat le plus proche
+	# du score cible
+	# --------------------------------------
+
+	var best_result: Dictionary = {}
+	var best_distance := INF
+
+	for result in candidates:
+
+		var distance = abs(
+			float(result["score"]) - target_score
+		)
+
+		if distance < best_distance:
+
+			best_distance = distance
+			best_result = result
+
+	return best_result
+
+
+###################################################################
+###################################################################
+###################################################################
+###################################################################
+###################################################################
+
+
+func test_difficulties(number_of_batches: int = 20) -> void:
+
+	print("")
+	print("==========================================")
+	print("       TEST DES DIFFICULTÉS")
+	print("==========================================")
+
+	for difficulty_level in [
+		Difficulty.EASY,
+		Difficulty.MEDIUM,
+		Difficulty.HARD
+	]:
+
+		difficulty = difficulty_level
+
+		var scores: Array[float] = []
+
+		print("")
+		
+		match difficulty:
+			Difficulty.EASY:
+				print("===== EASY =====")
+			Difficulty.MEDIUM:
+				print("===== MEDIUM =====")
+			Difficulty.HARD:
+				print("===== HARD =====")
+
+		for i in range(number_of_batches):
+
+			var result := generate_batch_for_difficulty(Difficulty.MEDIUM)
+
+			if result.is_empty():
+				continue
+
+			scores.append(result["score"])
+
+			print(
+				"  ",
+				" ".join(result["batch"]),
+				" | score = ",
+				result["score"],
+				" | 3L=",
+				result["n3"],
+				" 4L=",
+				result["n4"],
+				" 5L=",
+				result["n5"],
+				" 6L=",
+				result["n6"]
+			)
+
+		if not scores.is_empty():
+
+			print("")
+			print(
+				"Score moyen : ",
+				"%.2f" % average(scores)
+			)
+
+			print(
+				"Score min : ",
+				"%.2f" % scores.min()
+			)
+
+			print(
+				"Score max : ",
+				"%.2f" % scores.max()
+			)
+
 
 func evaluate_batch(batch: Array[String]) -> Dictionary:
 
-	var words_by_length = get_parent().get_node("WordManager").get_words_from_batch(batch)
+	var words_by_length: Dictionary = \
+		word_manager.get_words_from_batch(batch)
+
+	var n3 := 0
+	var n4 := 0
+	var n5 := 0
+	var n6 := 0
+
+	var total_words := 0
+	var total_letters := 0
+	
+
+	for length in words_by_length:
+
+		var words: Array = words_by_length[length]
+		var count := words.size()
+
+		total_words += count
+		total_letters += count * int(length)
+
+		match int(length):
+			3:
+				n3 = count
+			4:
+				n4 = count
+			5:
+				n5 = count
+			6:
+				n6 = count
+
+	var mean_length := 0.0
+
+	if total_words > 0:
+		mean_length = float(total_letters) / total_words
+
+	var long_words := n5 + n6
+	var long_ratio := 0.0
+
+	if total_words > 0:
+		long_ratio = float(long_words) / total_words
+	
+	var ratio_3 := 0.0
+	var ratio_4 := 0.0
+	var ratio_5 := 0.0
+	var ratio_6 := 0.0
+
+	if total_words > 0:
+		ratio_3 = float(n3) / total_words
+		ratio_4 = float(n4) / total_words
+		ratio_5 = float(n5) / total_words
+		ratio_6 = float(n6) / total_words
 
 	var result := {
 		"batch": batch,
 		"words_by_length": words_by_length,
-		"score": 0
+
+		"n3": n3,
+		"n4": n4,
+		"n5": n5,
+		"n6": n6,
+
+		"total_words": total_words,
+		"mean_length": mean_length,
+		"long_words": long_words,
+		"long_ratio": long_ratio,
+		"ratio_3": ratio_3,
+		"ratio_4": ratio_4,
+		"ratio_5": ratio_5,
+		"ratio_6": ratio_6,
+
+		"score": 0.0
 	}
 
 	result["score"] = calculate_playability_score(result)
 
 	return result
+	
+
+func calculate_playability_score(result: Dictionary) -> float:
+
+	var score := 0.0
+
+	score += result["n3"] * 1.0
+	score += result["n4"] * 2.0
+	score += result["n5"] * 5.0
+	score += result["n6"] * 8.0
+
+	return score
+
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	rng.randomize()
+	#test_difficulties(10)
 
 func test_batches(number_of_batches: int = 100) -> void:
 
@@ -290,27 +572,155 @@ func print_batch_result(
             " mots"
 		)
 
-func calculate_playability_score(result: Dictionary) -> float:
+func analyze_letter_effects(results: Array) -> void:
 
-	var words_by_length: Dictionary = result["words_by_length"]
+	var stats := {}
 
-	var score := 0.0
+	# Initialisation
+	for letter in dictionary_stats.ALPHABET:
+		stats[letter] = {
+			"present": 0,
+			"absent": 0,
 
-	for length in words_by_length:
+			"score_present": 0.0,
+			"score_absent": 0.0,
 
-		var count: int = words_by_length[length].size()
+			"n3_present": 0.0,
+			"n4_present": 0.0,
+			"n5_present": 0.0,
+			"n6_present": 0.0,
 
-		match int(length):
-			3:
-				score += count * 1.0
-			4:
-				score += count * 2.0
-			5:
-				score += count * 4.0
-			6:
-				score += count * 8.0
+			"n3_absent": 0.0,
+			"n4_absent": 0.0,
+			"n5_absent": 0.0,
+			"n6_absent": 0.0
+		}
 
-	return score
+	# Analyse de chaque batch
+	for result in results:
+
+		var batch: Array = result["batch"]
+
+		var batch_letters := {}
+
+		for letter in batch:
+			batch_letters[letter] = true
+
+		for letter in dictionary_stats.ALPHABET:
+
+			var is_present: bool = batch_letters.has(letter)
+
+			if is_present:
+				stats[letter]["present"] += 1
+
+				stats[letter]["score_present"] += result["score"]
+
+				stats[letter]["n3_present"] += result["n3"]
+				stats[letter]["n4_present"] += result["n4"]
+				stats[letter]["n5_present"] += result["n5"]
+				stats[letter]["n6_present"] += result["n6"]
+
+			else:
+
+				stats[letter]["absent"] += 1
+
+				stats[letter]["score_absent"] += result["score"]
+
+				stats[letter]["n3_absent"] += result["n3"]
+				stats[letter]["n4_absent"] += result["n4"]
+				stats[letter]["n5_absent"] += result["n5"]
+				stats[letter]["n6_absent"] += result["n6"]
+
+	# Calcul des moyennes et différences
+	for letter in dictionary_stats.ALPHABET:
+
+		var s: Dictionary = stats[letter]
+
+		if s["present"] > 0:
+
+			s["score_present"] /= s["present"]
+
+			s["n3_present"] /= s["present"]
+			s["n4_present"] /= s["present"]
+			s["n5_present"] /= s["present"]
+			s["n6_present"] /= s["present"]
+
+		if s["absent"] > 0:
+
+			s["score_absent"] /= s["absent"]
+
+			s["n3_absent"] /= s["absent"]
+			s["n4_absent"] /= s["absent"]
+			s["n5_absent"] /= s["absent"]
+			s["n6_absent"] /= s["absent"]
+	
+	print_letter_analysis(stats)
+
+func print_letter_analysis(stats: Dictionary) -> void:
+
+	print("")
+	print("==============================================")
+	print("             ANALYSE DES LETTRES")
+	print("==============================================")
+	print("")
+
+	print(
+        "Lettre | Présence | Score+ | Score- | ΔScore"
+	)
+
+	print("----------------------------------------------")
+
+	for letter in dictionary_stats.ALPHABET:
+
+		var s: Dictionary = stats[letter]
+
+		var delta_score : float  = (
+			s["score_present"]
+			- s["score_absent"]
+		)
+
+		print(
+            "%s | %4d | %6.2f | %6.2f | %+7.2f"
+			% [
+				letter,
+				s["present"],
+				s["score_present"],
+				s["score_absent"],
+				delta_score
+			]
+		)
+
+	print("")
+	print("----------------------------------------------")
+	print("             EFFET PAR LONGUEUR")
+	print("----------------------------------------------")
+	print("")
+
+	print(
+        "Lettre | ΔN3 | ΔN4 | ΔN5 | ΔN6"
+	)
+
+	print("----------------------------------------------")
+
+	for letter in dictionary_stats.ALPHABET:
+
+		var s: Dictionary = stats[letter]
+
+		var d3 : float = float(s["n3_present"] - s["n3_absent"])
+		var d4 :float = float(s["n4_present"] - s["n4_absent"])
+		var d5 :float = float(s["n5_present"] - s["n5_absent"])
+		var d6 :float = float(s["n6_present"] - s["n6_absent"])
+
+		print(
+            "%s | %+5.2f | %+5.2f | %+5.2f | %+5.2f"
+			% [
+				letter,
+				d3,
+				d4,
+				d5,
+				d6
+			]
+		)
 
 func generate_ranked_batches(
 	number_of_batches: int = 1000
@@ -346,6 +756,13 @@ func generate_ranked_batches(
 
 	return results
 
+func get_batch_key(batch: Array[String]) -> String:
+
+	var sorted_batch := batch.duplicate()
+	sorted_batch.sort()
+
+	return "".join(sorted_batch)
+
 func test_ranked_batches(
 	number_of_batches: int = 1000,
 	number_to_display: int = 20
@@ -354,6 +771,7 @@ func test_ranked_batches(
 	var results := generate_ranked_batches(
 		number_of_batches
 	)
+	analyze_letter_effects(results)
 
 	print("")
 	print("==========================================")
@@ -381,28 +799,36 @@ func test_ranked_batches(
 func format_batch_result(result: Dictionary) -> String:
 
 	var batch: Array = result["batch"]
-	var words_by_length: Dictionary = result["words_by_length"]
-	var score: float = result["score"]
 
-	var text := ""
+	return (
+        "%s | score=%.1f | "
+		+ "3L=%d | "
+		+ "4L=%d | "
+		+ "5L=%d | "
+		+ "6L=%d | "
+		+ "total=%d | "
+		+ "moy=%.2f | "
+		+ "long=%d"
+		+ " | ratio_long=%.2f"
+		+ " | ratios=%.2f/%.2f/%.2f/%.2f"
+	) % [
+		" ".join(batch),
+		result["score"],
 
-	text += " ".join(batch)
-	text += " | score = "
-	text += "%.1f" % score
+		result["n3"],
+		result["n4"],
+		result["n5"],
+		result["n6"],
 
-	for length in [3, 4, 5, 6, 7]:
-
-		var count := 0
-
-		if words_by_length.has(length):
-			count = words_by_length[length].size()
-
-		text += " | "
-		text += str(length)
-		text += "L="
-		text += str(count)
-
-	return text
+		result["total_words"],
+		result["mean_length"],
+		result["long_words"],
+		result["long_ratio"],
+		result["ratio_3"],
+		result["ratio_4"],
+		result["ratio_5"],
+		result["ratio_6"]
+	]
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:

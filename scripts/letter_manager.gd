@@ -31,6 +31,9 @@ var letter_pool = [
     "Z"
 ]
 
+func set_letters(new_letters: Array[String]) -> void:
+	available_letters = new_letters.duplicate()
+
 func generate_letters(count: int = 6):
 	available_letters.clear()
 	
