@@ -21,15 +21,44 @@ var valid_words = [
 @onready var letter_manager = get_parent().get_node("LetterManager")
 @onready var letters_label = get_parent().get_node("GameUI/Letters")
 @onready var word_manager = get_parent().get_node("WordManager")
+@onready var dictionary_stats = get_parent().get_node("DictionaryStats")
+@onready var batch_generator = get_parent().get_node("BatchGenerator")
+	
+func initialize_dictionary():
+	word_manager.load_dictionary()
+	
+	if word_manager.words.is_empty():
+		push_error("Le dictionnaire est vide.")
+		return
+	
+	var dictionary_hash = dictionary_stats.get_file_hash("res://data/francais.txt")
+	
+	if dictionary_stats.load_from_json(dictionary_hash):
+		return
+	
+	print("Calcul des statistiques en cours...")
+	
+	dictionary_stats.dictionary_hash = dictionary_hash
+	
+	dictionary_stats.compute_stat(word_manager.words)
+	
+	dictionary_stats.print_stat()
+	
+	dictionary_stats.save_to_json()
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	randomize()
 	
-	letter_manager.generate_letters(6)
-	
+	initialize_dictionary()
+	batch_generator.initialize(
+		dictionary_stats,
+		word_manager
+)
 	update_letters_ui()
 	update_ui()
+	
+	batch_generator.test_ranked_batches(1000, 20)
 
 func update_letters_ui():
 	letters_label.text = "Lettres : " + "  " .join(letter_manager.available_letters)
