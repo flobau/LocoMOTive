@@ -16083,6 +16083,7 @@ pessimiste
 pessimistes
 peste
 pester
+pet
 Petain
 petale
 Peter
@@ -19216,6 +19217,7 @@ rosser
 Rossi
 rossignol
 Rostres
+rot
 rotatif
 rotation
 Rothschild

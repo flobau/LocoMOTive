@@ -34,14 +34,6 @@ var letter_pool = [
 func set_letters(new_letters: Array[String]) -> void:
 	available_letters = new_letters.duplicate()
 
-func generate_letters(count: int = 6):
-	available_letters.clear()
-	
-	for i in range(count):
-		var index = randi() % letter_pool.size()
-		available_letters.append(letter_pool[index])
-		
-	return available_letters
 
 func can_make_word(word : String) -> bool:
 	var remaining_letters = available_letters.duplicate()
@@ -53,7 +45,11 @@ func can_make_word(word : String) -> bool:
 			return false
 	return true
 	
-	
+
+func consume_word(word: String) -> void:
+	for character in word:
+		available_letters.erase(character)
+
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	pass # Replace with function body.

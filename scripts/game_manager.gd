@@ -16,13 +16,18 @@ var valid_words = [
 
 @onready var train = get_parent().get_node("Train")
 @onready var score_label = get_parent().get_node("GameUI/Score")
-@onready var speed_label = get_parent().get_node("GameUI/Speed")
+@onready var distance_label = get_parent().get_node("GameUI/Distance")
 @onready var word_input = get_parent().get_node("GameUI/WordInput")
 @onready var letter_manager = get_parent().get_node("LetterManager")
 @onready var letters_label = get_parent().get_node("GameUI/Letters")
 @onready var word_manager = get_parent().get_node("WordManager")
 @onready var dictionary_stats = get_parent().get_node("DictionaryStats")
 @onready var batch_generator = get_parent().get_node("BatchGenerator")
+@export var total_distance: float = 5.0
+var distance_remaining: float = total_distance
+@export var time_per_letter: float = 1.0
+var is_moving: bool = false
+var game_over: bool = false
 
 enum Difficulty {
 	EASY,
@@ -58,7 +63,7 @@ func initialize_dictionary():
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	randomize()
-	
+
 	initialize_dictionary()
 	batch_generator.initialize(
 		dictionary_stats,
@@ -97,20 +102,43 @@ func _on_word_input_text_submitted(new_text: String) -> void:
 	
 	if word_manager.is_valid_word(word) and letter_manager.can_make_word(word):
 		validate_word(word)
-	else:
-		reject_word()
 		
 	word_input.clear()
 
 func validate_word(word: String):
-	score += word.length()*10
-	train.speed += word.length()*20
+	if game_over:
+		return
+	var remaining_letters = letter_manager.available_letters.duplicate()
+	var length := word.length()
+	for character in word:
+		remaining_letters.erase(character)
+
+	var result = batch_generator.generate_batch_for_difficulty(
+		Difficulty.MEDIUM,
+		30,
+		remaining_letters
+	)
+
+	if result.is_empty():
+		push_error("Impossible de générer le nouveau batch.")
+		return
+
+	letter_manager.set_letters(result["batch"])
+	
+	var movement_time := length * time_per_letter
+
+	train.add_movement_time(movement_time)
+	score += length * 10
+	
+	distance_remaining -= length * 20.0
+
+	update_letters_ui()
 	update_ui()
 	
-func reject_word():
-	train.speed = max(train.speed -20, min_speed)
-	update_ui()
+	if distance_remaining <= 0:
+		distance_remaining = 0
+		#end_round()
 	
 func update_ui():
 	score_label.text = "Score : " + str(score)
-	speed_label.text = "Vitesse : " + str(round(train.speed))
+	distance_label.text = "Distance restante : " + str(distance_remaining)

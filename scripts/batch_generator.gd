@@ -66,7 +66,9 @@ func weighted_random_letter(
 
 	return available.back()["letter"]
 
-func generate_batch() -> Array[String]:
+func generate_batch(
+	batch_difficulty: Difficulty = Difficulty.MEDIUM
+) -> Array[String]:
 
 	if dictionary_stats == null:
 		push_error("BatchGenerator : DictionaryStats non initialisé.")
@@ -80,7 +82,10 @@ func generate_batch() -> Array[String]:
 
 	while batch.size() < batch_size:
 
-		var frequencies := get_letter_frequencies_for_batch(batch)
+		var frequencies := get_letter_frequencies_for_batch(
+			batch,
+			batch_difficulty
+		)
 
 		var letter := weighted_random_letter(
 			frequencies,
@@ -95,7 +100,8 @@ func generate_batch() -> Array[String]:
 	return batch
 
 func get_letter_frequencies_for_batch(
-	batch: Array[String]
+	batch: Array[String],
+	difficulty: Difficulty
 ) -> Dictionary:
 
 	var frequencies: Dictionary = {}
@@ -159,14 +165,18 @@ func get_letter_frequencies_for_batch(
 
 func generate_batch_for_difficulty(
 	difficulty: Difficulty,
-	number_of_candidates: int = 30
+	number_of_candidates: int = 30,
+	required_letters: Array[String] = []
 ) -> Dictionary:
 
 	var candidates: Array = []
 
 	for i in range(number_of_candidates):
 
-		var batch := generate_batch()
+		var batch := generate_batch_with_required_letters(
+			difficulty,
+			required_letters
+		)
 
 		if batch.size() != batch_size:
 			continue
@@ -216,6 +226,50 @@ func generate_batch_for_difficulty(
 
 	return best_result
 
+func generate_batch_with_required_letters(
+	difficulty: Difficulty,
+	required_letters: Array[String]
+) -> Array[String]:
+
+	var batch: Array[String] = []
+
+	# --------------------------------
+	# Ajout des lettres obligatoires
+	# --------------------------------
+
+	for letter in required_letters:
+
+		if batch.size() >= batch_size:
+			break
+
+		if letter not in dictionary_stats.ALPHABET:
+			continue
+
+		if letter not in batch:
+			batch.append(letter)
+
+	# --------------------------------
+	# Complète le batch normalement
+	# --------------------------------
+
+	while batch.size() < batch_size:
+
+		var frequencies := get_letter_frequencies_for_batch(
+			batch,
+			difficulty
+		)
+
+		var letter := weighted_random_letter(
+			frequencies,
+			batch
+		)
+
+		if letter == "":
+			break
+
+		batch.append(letter)
+
+	return batch
 
 ###################################################################
 ###################################################################
