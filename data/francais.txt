@@ -4082,6 +4082,10 @@ chine
 chinois
 chinoise
 chinoises
+chiot
+chiots
+chiotte
+chiottes
 chiper
 chipie
 chipolata
@@ -9966,6 +9970,7 @@ froidement
 froideur
 froisser
 frole
+frola
 froler
 fromage
 fromages
@@ -15803,7 +15808,7 @@ peaufiner
 peau-rouge
 pebroc
 peche
-peche
+pechu
 pecher
 pecher
 pecheresse
@@ -17857,6 +17862,7 @@ rassure
 rassure
 rassurer
 rassures
+rat
 rate
 rate
 rateau
@@ -21368,6 +21374,7 @@ titulaires
 Titus
 Todor
 Todorov
+toge
 Togo
 tohu-bohu
 toi
@@ -21852,6 +21859,8 @@ tsariste
 tsigane
 tu
 tuant
+tuba
+tubas
 tube
 tubercule
 tubes

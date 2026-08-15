@@ -2,6 +2,8 @@
 
 [ext_resource type="PackedScene" uid="uid://cb3bvpeellexv" path="res://scenes/Train.tscn" id="1_o5qli"]
 [ext_resource type="Script" uid="uid://ca4p5a5pfsukd" path="res://scripts/game_manager.gd" id="2_0wfyh"]
+[ext_resource type="PackedScene" uid="uid://my7twves72k3" path="res://scenes/environment.tscn" id="2_o6xl0"]
+[ext_resource type="Script" uid="uid://drfkdifhhotkd" path="res://scripts/environment.gd" id="2_tipki"]
 [ext_resource type="Script" uid="uid://cbtnhrg3kstvh" path="res://scripts/letter_manager.gd" id="3_sugp2"]
 [ext_resource type="Script" uid="uid://dflvehvv2r1k8" path="res://scripts/word_manager.gd" id="4_jyhfs"]
 [ext_resource type="Script" uid="uid://d2hre6c4vme5w" path="res://scripts/dictionary_stats.gd" id="5_tbgi4"]
@@ -21,6 +23,9 @@ offset_left = 10.0
 offset_top = 630.0
 offset_right = 1145.0
 offset_bottom = 636.0
+
+[node name="Environment" parent="." unique_id=508747993 instance=ExtResource("2_o6xl0")]
+script = ExtResource("2_tipki")
 
 [node name="Train" parent="." unique_id=1955489833 instance=ExtResource("1_o5qli")]
 position = Vector2(-1, -1)

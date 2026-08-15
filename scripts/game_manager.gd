@@ -24,8 +24,11 @@ var valid_words = [
 @onready var dictionary_stats = get_parent().get_node("DictionaryStats")
 @onready var batch_generator = get_parent().get_node("BatchGenerator")
 @export var total_distance: float = 5.0
+@onready var environment = get_parent().get_node("Environment")
 var distance_remaining: float = total_distance
 @export var time_per_letter: float = 1.0
+@export var target_x: float = 450
+
 var is_moving: bool = false
 var game_over: bool = false
 
@@ -127,7 +130,12 @@ func validate_word(word: String):
 	
 	var movement_time := length * time_per_letter
 
-	train.add_movement_time(movement_time)
+	if train.position.x < target_x:
+		train.add_movement_time(movement_time)
+	else :
+		environment.add_movement_time(movement_time)
+		train.just_animation(movement_time)
+		
 	score += length * 10
 	
 	distance_remaining -= length * 20.0
